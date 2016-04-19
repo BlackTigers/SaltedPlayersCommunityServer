@@ -1,0 +1,11 @@
+name: SaltedPlayersCommunityServer
+main: de.lkrause.bukkit.CommunityServerPlugin
+version: alpha_1.0
+author: HuntingFighter
+commands:
+  test:
+    usage: /test
+    description: Testbefehl für das Plugin
+  CastleRush:
+    usage: /CastleRush [start,cancel] [worldname]
+    description: Starten von CastleRush

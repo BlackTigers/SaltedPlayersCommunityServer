@@ -1,0 +1,21 @@
+Maps:
+  CastleRush1: 'Castle Rush'
+CastleRush:
+  CastleRush1:
+    green:
+      CoordX: 551
+      CoordY: 73
+      CoordZ: 832
+    red:
+      CoordX: 889
+      CoordY: 73
+      CoordZ: 832
+    spawn:
+      CoordX: 720
+      CoordY: 53
+      CoordZ: 832
+Lobby:
+  spawn:
+    CoordX: 213
+    CoordY: 140
+    CoordZ: 123
