@@ -7,25 +7,33 @@ import java.util.Map;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 
+import de.lkrause.bukkit.dao.ConfigDao;
 import de.lkrause.bukkit.model.DataModel;
+import de.lkrause.bukkit.model.GameMode;
+import de.lkrause.bukkit.model.PlayerCounts;
 
 public class EventListener implements Listener {
 
 	private Map<String, String> mGameModes = new HashMap<String, String>();
 	private Map<String, String> mMaps = new HashMap<String, String>();
-	private Map<String, SignChangeEvent> mSigns = new HashMap<String, SignChangeEvent>();
+	private Map<Location, String> mSignIdsByLocation = new HashMap<Location, String>();
+	private Map<String, PlayerCounts> mMapToPlayerCount = new HashMap<String, PlayerCounts>();
 	private CommunityServerPlugin mPlugin;
 	
 	public EventListener(CommunityServerPlugin pPlugin) {
@@ -53,25 +61,38 @@ public class EventListener implements Listener {
 		if (pEvent.getAction() == Action.RIGHT_CLICK_BLOCK) {
 			if (pEvent.getClickedBlock().getState() instanceof Sign) {
 				Sign lClickedSign = (Sign) pEvent.getClickedBlock().getState();
+				
 				String[] lLines = lClickedSign.getLines();
-				String lSpielerzeile = lLines[2];
-				int lMaxSpieler = 0;
-				int lAnzahlSpieler = 0;
-				int lLengthSpielerzeile = lSpielerzeile.length();
 				
-				int lLengthZahl1 = lSpielerzeile.indexOf('/') - 1;
-				int lLengthZahl2 = lLengthSpielerzeile - (lSpielerzeile.indexOf('/') + 2);
+				PlayerCounts lPlayerCounts = mMapToPlayerCount.get(lLines[1]);
 				
-				lAnzahlSpieler = Integer.parseInt(lSpielerzeile.substring(0, lLengthZahl1));
-				lMaxSpieler = Integer.parseInt(lSpielerzeile.substring(lLengthSpielerzeile - lLengthZahl2));
-				pEvent.getPlayer().sendMessage("Anzahl Spieler: " + lAnzahlSpieler + " Maximale Spieler: " + lMaxSpieler);
-				
-				if (lAnzahlSpieler != lMaxSpieler) {
-					lClickedSign.setLine(2, Integer.toString(lAnzahlSpieler + 1) + " / " + Integer.toString(lMaxSpieler));
+				if (!lPlayerCounts.getMapVoll()) {
+					lClickedSign.setLine(2, lPlayerCounts.getActual() + " / " + lPlayerCounts.getMax());
 					pEvent.getPlayer().teleport(DataModel.getInstance().loadSpawn(lLines[1]));
 					
 				}
 				lClickedSign.update();
+			}
+		}
+	}
+	
+	
+	public void onSignBreak(BlockBreakEvent pEvent) {
+		if (pEvent.getBlock().getType() == Material.SIGN) {
+			Sign lSign = (Sign) pEvent.getBlock();
+			
+			String[] lLines = lSign.getLines();
+			
+			if (mMaps.containsKey(lLines[1])) {
+				if (mMapToPlayerCount.get(lLines[1]).getActual() != 0) {
+					for (Player lPlayer: mPlugin.getServer().getOnlinePlayers()) {
+						if (lPlayer.getWorld().equals(mPlugin.getServer().getWorld(lLines[1]))) {
+							lPlayer.teleport(DataModel.getInstance().getLobbySpawn());
+						}
+					}
+				}
+				mMapToPlayerCount.remove(lLines[1]);
+				mSignIdsByLocation.remove(lSign.getBlock().getLocation());
 			}
 		}
 	}
@@ -82,15 +103,37 @@ public class EventListener implements Listener {
 		String[] lLines = pSign.getLines();
 		
 		if (validSign(lLines)) {
-			String lMapId = lLines[1];
 			DataModel.getInstance().addWorld(DataModel.getInstance().getPlugin().getServer().getWorld(lLines[1]));
+
+			mMapToPlayerCount.put(lLines[1], new PlayerCounts(Integer.parseInt(lLines[2])));
+			mSignIdsByLocation.put(pSign.getBlock().getLocation(), Integer.toString(pSign.getBlock().hashCode()));
 			
-			pSign.setLine(0, ChatColor.RED + mGameModes.get(lLines[0]));
-			pSign.setLine(1, ChatColor.RED + lLines[1]);
-			pSign.setLine(2, ChatColor.RED + "0 / " + mGameModes.get(lLines[2]));
-			pSign.setLine(3, ChatColor.RED + "");
+			int lGameMode;
+			switch (lLines[0]) {
+			case "CastleRush":
+				lGameMode = GameMode.CASTLERUSH;
+				break;
+			case "BedWars":
+				lGameMode = GameMode.BEDWARS;
+				break;
+			case "SkyPvP":
+				lGameMode = GameMode.SKYPVP;
+				break;
+			case "KitPvP":
+				lGameMode = GameMode.KITPVP;
+				break;
+			case "Craftattack":
+				lGameMode = GameMode.CRAFTATTACK;
+				break;
+			}
 			
-			mSigns.put(lMapId, pSign);
+			ConfigDao.writeSignToConfig(pSign.getBlock().getLocation(), pGameMode, pMaxPlayers, pSignMode, pSignId)
+
+			
+			pSign.setLine(0, ChatColor.GREEN + mGameModes.get(lLines[0]));
+			pSign.setLine(1, ChatColor.GREEN + lLines[1]);
+			pSign.setLine(2, ChatColor.GREEN + "0 / " + lLines[2]);
+			pSign.setLine(3, ChatColor.GREEN + "");
 		}
 	}
 	
@@ -101,6 +144,12 @@ public class EventListener implements Listener {
 	}
 	
 	private boolean validSign(String[] pLines) {
+		
+		for (int i = 0; i < pLines[2].length(); i++) {
+			if (!Character.isDigit(pLines[2].charAt(i))) {
+				return false;
+			}
+		}
 		
 		return mGameModes.containsKey(pLines[0]) && mMaps.containsKey(pLines[1]) && (pLines[2].length() != 0) && (pLines[3].equalsIgnoreCase("[teleport]") || pLines[3].equalsIgnoreCase("[join]"));
 	}

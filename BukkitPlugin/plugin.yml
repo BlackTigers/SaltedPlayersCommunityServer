@@ -9,3 +9,10 @@ commands:
   CastleRush:
     usage: /CastleRush [start,cancel] [worldname]
     description: Starten von CastleRush
+  hub:
+    usage: /hub
+    description: Teleportiert dich in die Lobby
+  lobby:
+    usage: /lobby
+    description: Teleportiert dich in die Lobby
+  

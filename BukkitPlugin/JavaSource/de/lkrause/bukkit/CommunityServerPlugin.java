@@ -47,6 +47,13 @@ public class CommunityServerPlugin extends JavaPlugin {
 			lPlayer = (Player) pSender;
 		}
 
+		if (pCommand.getName().equalsIgnoreCase("lobby") || pCommand.getName().equalsIgnoreCase("hub")) {
+			if (pArgs.length == 0) {
+				lPlayer.teleport(mData.getLobbySpawn());
+				return true;
+			}
+		}
+		
 		// Startcommand Castle Rush
 		if (pCommand.getName().equalsIgnoreCase("castlerush")) {
 			if (pArgs.length == 2) {
@@ -98,6 +105,7 @@ public class CommunityServerPlugin extends JavaPlugin {
 						}
 						*///20*60*15
 						Bukkit.getScheduler().scheduleAsyncDelayedTask(this, new CastleRushStart(lCastleRushId, lSchedulerId), 20*15);
+						return true;
 					}
 				}
 			}
